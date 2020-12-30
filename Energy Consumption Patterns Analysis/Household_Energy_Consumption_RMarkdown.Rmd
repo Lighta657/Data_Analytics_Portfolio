@@ -1,0 +1,370 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+```
+library(tidyverse)
+library(plotly)
+library(dplyr)
+install.packages("RMySQL")
+install.packages("plotly")
+library(RMySQL)
+library(DBI)
+library(ggpubr)
+set.seed(42)
+
+#Create DB connection
+con=dbConnect(MySQL(),user='deepAnalytics',password='Sqltask1234!',dbname='dataanalytics2018',host='data-analytics-2018.cbrosir2cswx.us-east-1.rds.amazonaws.com')
+
+#List table in db
+dbListTables(con)
+dbListFields(con,'iris')
+
+#Use * to specify all attr to download
+irisALL<-dbGetQuery(con,"SELECT * FROM iris")
+
+#Use attr names to download
+irisSELECT<-dbGetQuery(con,"SELECT SepalLengthCm, SepalWidthCm from iris")
+dbListFields(con,'yr_2006')
+yr_2010<-dbGetQuery(con,"SELECT Date,Time,Sub_metering_1,Sub_metering_2,Sub_metering_3 from yr_2010")
+dbDisconnect(con)
+
+#sub_metering_1: It corresponds to the kitchen, containing mainly a dishwasher, an oven and a microwave (hot plates are not electric but gas powered).
+#sub_metering_2: It corresponds to the laundry room, containing a washing-machine, a tumble-drier, a refrigerator and a light.
+#sub_metering_3: It corresponds to an electric water-heater and an air-conditioner.
+str(yr_2006)
+summary(yr_2010)
+head(yr_2010)
+tail(yr_2010)
+
+#Combine tables into df
+household_consum<-bind_rows(yr_2007,yr_2008,yr_2009)
+str(household_consum)
+summary(household_consum)
+head(household_consum)
+tail(household_consum)
+
+#Combine Date/Time columns
+household_consum<-cbind(household_consum,paste(household_consum$Date,household_consum$Time),stringAsFactor=FALSE)
+#Rename column name
+colnames(household_consum)[6]<-"DateTime"
+#Move column in df
+household_consum<-household_consum[ ,c(ncol(household_consum),1:(ncol(household_consum)-1))]
+head(household_consum)
+household_consum<-household_consum[,c("DateTime","Sub_metering_1","Sub_metering_2","Sub_metering_3")]
+#Convert to POSIXct
+household_consum$DateTime<-as.POSIXct(household_consum$DateTime,"%Y/%m/%d %H:%M:%S")
+#Add time zone
+attr(household_consum$DateTime,"tzone")<-"Europe/Paris"
+str(household_consum)
+
+#LUBRIDATE
+install.packages("lubridate")
+library(lubridate)
+#Create Year/Quarter/Month/Week/Weekday/Day/Hour/Minute attr 
+household_consum$Year<-year(household_consum$DateTime)
+household_consum$Month<-month(household_consum$DateTime)
+household_consum$Day<-day(household_consum$DateTime)
+household_consum$Hour<-hour(household_consum$DateTime)
+household_consum1<-subset(household_consum,Year<2010)
+household_consum1$Week<-week(household_consum1$DateTime)
+household_consum1$Minute<-minute(household_consum1$DateTime)
+summary(household_consum1)
+household_consumSummer<-subset(household_consum1, Month > 5 & Month <= 8,select=DateTime:Hour)
+household_consumSummerAUG2008<-subset(household_consumSummer,Year==2008 & Month==8, select=DateTime:Hour)
+summary(household_consumSummerAUG2008)
+TestMonth<-subset(household_consum1, Month=8,select=DateTime:Hour)
+
+install.packages("sqldf")
+detach("package:RMySQL",unload=TRUE)#or options(sqldf.driver = "SQLite")
+library(sqldf)
+library(gsubfn)
+library(proto)
+library(RSQLite)
+sqldf("SELECT Year=2010, COUNT(*) FROM 'household_consum' WHERE Month=8 GROUP BY Month")
+
+#Sub-meter 1 annual trend
+annual1<-ggplot(household_consum1, aes(Month, Sub_metering_1))+
+  geom_smooth(color="red",span=0.3)+scale_x_continuous(breaks=seq(1,12,1),limits=c(1,12))
+annual1+facet_grid(Year~.)+labs(y="Average Watt-Hour of Active Energy",title = "Annual Energy Consumption Trend - Major Kitchen Appliances")+
+  theme_bw()+theme(plot.title = element_text(face="bold",color="darkblue", hjust = 0.5),axis.title=element_text(face="italic",color="darkblue"), axis.text=element_text(face="bold", size=10)) 
+#Sub-meter 2 annual trend
+annual2<-ggplot(household_consum1, aes(Month, Sub_metering_2))+
+  geom_smooth(color="red",span=0.3)+scale_x_continuous(breaks=seq(1,12,1),limits=c(1,12))
+annual2+facet_grid(Year~.)+labs(y="Average Watt-Hour of Active Energy",title = "Annual Energy Consumption Trend - Laundry Room, Refrigerator, and Light")+
+  theme_bw()+theme(plot.title = element_text(face="bold",color="darkblue", hjust = 0.5),axis.title=element_text(face="italic",color="darkblue"), axis.text=element_text(face="bold", size=10)) 
+#Sub-meter 3 annual trend
+annual3<-ggplot(household_consum1, aes(Month, Sub_metering_3))+
+  geom_smooth(color="red",span=0.3)+scale_x_continuous(breaks=seq(1,12,1),limits=c(1,12))
+annual3+facet_grid(Year~.)+labs(y="Average Watt-Hour of Active Energy",title = "Annual Energy Consumption Trend - Electric Water-Heater and Air-Conditioner")+
+  theme_bw()+theme(plot.title = element_text(face="bold",color="darkblue", hjust = 0.5),axis.title=element_text(face="italic",color="darkblue"), axis.text=element_text(face="bold", size=10)) 
+?theme
+
+#Sub-meter 1 Summer 2007,2008,2009
+annual1S<-ggplot(household_consumSummer, aes(Month, Sub_metering_1))+
+  geom_smooth(method = "gam",formula = y ~ s(x, bs = "cs",k=3),color="darkgreen",span=0.3)+scale_x_continuous(breaks=seq(6,8,1),limits=c(6,8))
+annual1S+facet_grid(Year~.)+labs(y="Average Watt-Hour of Active Energy",title = "Summer Months Energy Consumption Trend - Major Kitchen Appliances")+
+  theme_bw()+theme(plot.title = element_text(face="bold",color="darkblue", hjust = 0.5),axis.title=element_text(face="italic",color="darkblue"), axis.text=element_text(face="bold", size=10))
+#Sub-meter 2 Summer 2007,2008,2009
+annual2S<-ggplot(household_consumSummer, aes(Month, Sub_metering_2))+
+  geom_smooth(method = "gam",formula = y ~ s(x, bs = "cs",k=3),color="darkgreen",span=0.3)+scale_x_continuous(breaks=seq(6,8,1),limits=c(6,8))
+annual2S+facet_grid(Year~.)+labs(y="Average Watt-Hour of Active Energy",title = "Summer Months Energy Consumption Trend - Laundry Room, Refrigerator, and Light")+
+  theme_bw()+theme(plot.title = element_text(face="bold",color="darkblue", hjust = 0.5),axis.title=element_text(face="italic",color="darkblue"), axis.text=element_text(face="bold", size=10))
+#Sub-meter 3 Summer 2007,2008,2009
+annual3S<-ggplot(household_consumSummer, aes(Month, Sub_metering_2))+
+  geom_smooth(method = "gam",formula = y ~ s(x, bs = "cs",k=3),color="darkgreen",span=0.3)+scale_x_continuous(breaks=seq(6,8,1),limits=c(6,8))
+annual3S+facet_grid(Year~.)+labs(y="Average Watt-Hour of Active Energy",title = "Summer Months Energy Consumption Trend - Electric Water-Heater and Air-Conditioner")+
+  theme_bw()+theme(plot.title = element_text(face="bold",color="darkblue", hjust = 0.5),axis.title=element_text(face="italic",color="darkblue"), axis.text=element_text(face="bold", size=10)) 
+
+#Sub-meter 1 AUG 2008
+AUG081<-ggplot(household_consumSummerAUG2008, aes(Day, Sub_metering_1))+geom_point(show.legend=FALSE,aes(colour="#003366"))+
+  scale_x_continuous(breaks=seq(1,31,1),limits=c(1,31))
+AUG081+facet_grid(Year~.)+labs(y="Watt-Hour of Active Energy",title = "August 2008 Actual Energy Consumption - Major Kitchen Appliances")+
+  theme_bw()+theme(plot.title = element_text(face="bold",color="darkblue", hjust = 0.5),axis.title=element_text(face="italic",color="darkblue"), axis.text=element_text(face="bold", size=10))
+#Sub-meter 2 AUG 2008
+AUG082<-ggplot(household_consumSummerAUG2008, aes(Day, Sub_metering_2))+geom_point(show.legend=FALSE,aes(colour="red"))+
+  scale_x_continuous(breaks=seq(1,31,1),limits=c(1,31))
+AUG082+facet_grid(Year~.)+labs(y="Watt-Hour of Active Energy",title = "August 2008 Actual Energy Consumption - Laundry Room, Refrigerator, and Light")+
+  theme_bw()+theme(plot.title = element_text(face="bold",color="darkblue", hjust = 0.5,size=14),axis.title=element_text(face="italic",color="darkblue"), axis.text=element_text(face="bold", size=10))
+#Sub-meter 3 AUG 2008
+AUG083<-ggplot(household_consumSummerAUG2008, aes(Day, Sub_metering_3))+geom_point(show.legend=FALSE,aes(colour="red"))+
+  scale_x_continuous(breaks=seq(1,31,1),limits=c(1,31))
+AUG083+facet_grid(Year~.)+labs(y="Watt-Hour of Active Energy",title = "August 2008 Actual Energy Consumption - Electric Water-Heater and Air-Conditioner")+
+  theme_bw()+theme(plot.title = element_text(face="bold",color="darkblue", hjust = 0.5),axis.title=element_text(face="italic",color="darkblue"), axis.text=element_text(face="bold", size=10))
+#Sub-meter 3 Test Months
+JFM<-ggplot(TestMonth, aes(Day, Sub_metering_3))+geom_point(show.legend=FALSE,aes(colour="red"))+
+  scale_x_continuous(breaks=seq(1,31,1),limits=c(1,31))
+JFM+facet_grid(Year~.)+labs(y="Watt-Hour of Active Energy",title = "August 2008 Actual Energy Consumption - Electric Water-Heater and Air-Conditioner")+
+  theme_bw()+theme(plot.title = element_text(face="bold",color="darkblue", hjust = 0.5),axis.title=element_text(face="italic",color="darkblue"), axis.text=element_text(face="bold", size=10))
+
+#Subset 2nd week of 2008 - all observ
+houseWeek<-filter(household_consum1,Year==2008 & Week==2)
+plot(houseWeek$Sub_metering_1)
+houseDay<-filter(household_consum1,Year==2008 & Month==1 & Day==9)
+plot_ly(houseDay,x=~houseDay$DateTime,y=~houseDay$Sub_metering_1,type="scatter", mode="lines")
+#Plot 1,2,3 Submeters 1/9/08
+plot_ly(houseDay, x=~houseDay$DateTime, y=~houseDay$Sub_metering_1, name="Kitchen",type="scatter",mode="lines")%>%
+  add_trace(y=~houseDay$Sub_metering_2, name="Laundry Room", mode="lines")%>%
+  add_trace(y=~houseDay$Sub_metering_3, name="Water Heater and AC", mode="lines")%>%
+  layout(title="Power Consumption - January 9th, 2008",
+         xaxis=list(title="Time"),
+         yaxis=list(title="Power (watt-hours)"))
+
+#Subset 1/9/08 - 10 min freq
+houseDay10<-filter(household_consum1, Year==2008 & Month==1 & Day==9 & (Minute==0|Minute==10|Minute==20|Minute==30|Minute==40|Minute==50))
+#Plot subset 1/9/08 - 10 min freq
+plot_ly(houseDay10,x=~houseDay10$DateTime, y=~houseDay10$Sub_metering_1, name="Kitchen", type="scatter", mode="lines")%>%
+  add_trace(y=~houseDay10$Sub_metering_2, name="Laundry Room", mode="lines")%>%
+  add_trace(y=~houseDay10$Sub_metering_3, name="Water Heater and AC", mode="lines")%>%
+  layout(title="Power Consumption - January 9th, 2008",
+         xaxis=list(title="Time"),
+         yaxis=list(title="Power (watt-hours)"))
+
+#Plot subset 3 submeters Daily - 20 min freq
+house080208<-filter(household_consum1,Year==2008 & Month==8 & Day==2 & (Minute==0|Minute==20|Minute==40|Minute==59))
+plot_ly(house080208,x=~house080208$DateTime, y=~house080208$Sub_metering_1, name="Kitchen", type="scatter", mode="lines")%>%
+  add_trace(y=~house080208$Sub_metering_2, name="Laundry Room and Refrigerator", mode="lines")%>%
+  add_trace(y=~house080208$Sub_metering_3, name="Water Heater and AC", mode="lines")%>%
+  layout(title="Power Consumption - August 2nd, 2008",
+         xaxis=list(title="Time"),
+         yaxis=list(title="Power (watt-hours)"),
+         legend=list(x=0.1))
+
+#Plot subset 3 submeters Weekly - 6 hour freq
+houseWeek<-filter(household_consum1,Year==2008 & Week==6 & (Hour==0|Hour==6|Hour==12|Hour==18))
+plot_ly(houseWeek,x=~houseWeek$DateTime, y=~houseWeek$Sub_metering_1, name="Kitchen", type="scatter", mode="lines")%>%
+  add_trace(y=~houseWeek$Sub_metering_2, name="Laundry Room and Refrigerator", mode="lines")%>%
+  add_trace(y=~houseWeek$Sub_metering_3, name="Water Heater and AC", mode="lines")%>%
+  layout(title="Power Consumption - February 6th to February 11th, 2008",
+         xaxis=list(title="Time"),
+         yaxis=list(title="Power (watt-hours)"),
+         legend=list(x=0.1))
+
+#Plot subset 3 submeters Monthly - 18 hour freq
+houseWeek<-filter(household_consum1,Year==2009 & Month==8 & (Hour==0|Hour==18))
+plot_ly(houseWeek,x=~houseWeek$DateTime, y=~houseWeek$Sub_metering_1, name="Kitchen", type="scatter", mode="lines")%>%
+  add_trace(y=~houseWeek$Sub_metering_2, name="Laundry Room and Refrigerator", mode="lines")%>%
+  add_trace(y=~houseWeek$Sub_metering_3, name="Water Heater and AC", mode="lines")%>%
+  layout(title="Power Consumption - August, 2009",
+         xaxis=list(title="Time"),
+         yaxis=list(title="Power (watt-hours)"),
+         legend=list(x=0.1))
+
+#Plot piechart 3 submeters 1 Day - 4 hour freq
+house080208<-filter(household_consum1,Year==2008 & Month==10 & Day==11 & (Hour==0|Hour==2|Hour==4|Hour==6|Hour==8|Hour==10|Hour==12|Hour==14|Hour==16|Hour==18|Hour==20|Hour==22))
+Pie0802<-plot_ly()
+Pie0802<-Pie0802 %>% 
+  add_pie(house080208,labels=~house080208$Hour,values=house080208$Sub_metering_1, name="Kitchen",textposition="inside", domain = list(x = c(0, 0.4), y = c(0.4, 1)))%>%
+  add_pie(house080208,labels=~house080208$Hour,values=~house080208$Sub_metering_2, name="Laundry Room and Refrigerator",textposition="inside", domain = list(x = c(0.6, 1), y = c(0.4, 1)))%>%
+  add_pie(house080208,labels=~house080208$Hour,values=~house080208$Sub_metering_3, name="Water Heater and AC",textposition="inside", domain = list(x = c(0.3, 0.7), y = c(0, 0.6)))%>%
+  layout(title="Power Consumption by Active Hours and Sub-Meter - October 11th, 2008",
+         uniformtext=list(minsize=12,mode="hide"),
+         annotations = list(
+         list(x = 0.15 , y = 0.97, text = "Kitchen", showarrow = F),
+         list(x = 0.9 , y = 0.97, text = "Laundry Room", showarrow = F),
+         list(x = 0.5 , y=0.53, text="Water Heater and AC",showarrow = F)))%>%
+  layout(legend=list(title=list(text='<b> 24-Hour Clock </b>', x=0.8, y=0)))
+Pie0802
+
+#Plot piechart daily consumption by sub-meter
+house080208R<-filter(household_consum1,Year==2008 & Month==10 & Day==11)
+df<-data.frame(x=c(house080208$Sub_metering_1,house080208$Sub_metering_2,house080208$Sub_metering_3),group=as.factor(c(rep("Kitchen",1440),rep("Laundry Room",1440), rep("Water Heater and AC",1440))))
+DailyAll <- plot_ly(df, labels = ~group, values = ~x, type = 'pie')
+DailyAll <- DailyAll %>% layout(title = 'Total Energy Consumption by Sub-meter for October 11th, 2008',
+                      xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+                      yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
+
+DailyAll
+#Plot piechart annual consumption by sub-meter
+P2008<-filter(household_consum1,Year==2008)
+df1<-data.frame(x1=c(P2008$Sub_metering_1,P2008$Sub_metering_2,P2008$Sub_metering_3),group1=as.factor(c(rep("Kitchen",nrow(P2008)),rep("Laundry Room",nrow(P2008)), rep("Water Heater and AC",nrow(P2008)))))
+YearAll <- plot_ly(df1, labels = ~group1, values = ~x1, type = 'pie')
+YearAll <- YearAll %>% layout(title = 'Total Energy Consumption by Sub-meter for 2008',
+                                xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+                                yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
+
+YearAll
+
+#Time Series
+household_consum1$WeekDay<-wday(household_consum1$DateTime)
+#Subset to 1 obs per week on Monday at 8.01pm for 2007,2008, and 2009
+house070809weekly<-filter(household_consum1, WeekDay==2 & Hour==20 & Minute==1)
+#Create TS object for Sub-meter 3
+tsSM3_070809weekly<-ts(house070809weekly$Sub_metering_3,frequency=52, start=c(2007,1))
+library(ggfortify)
+library(ggplot2)
+autoplot(tsSM3_070809weekly,ts.colour="red",xlab="Time",ylab="Watt Hours", main="Water Heater and AC Energy Consumption - every Monday at 8.01pm for 2007, 2008, and 2009 ")
+#Plot.ts
+plot.ts(tsSM3_070809weekly)
+
+#Subset to 1 week obs for Sub-meter 2
+houseWeek<-filter(household_consum1,Week==52)
+tshouseWeek<-ts(houseWeek$Sub_metering_2,frequency=10080, start=c(2007,1))
+autoplot(tshouseWeek,ts.colour="darkgreen", xlab="Time: Week 52", ylab="Watt Hours", main="Laundry Room/Refrigerator Energy Consumption - Christmas Week of December for 2007, 2008, and 2009")
+#Subset to 1 day obs for Sub-meter 1
+houseDay<-filter(household_consum1,Month==10 & Day==11)
+tshouseDay<-ts(houseDay$Sub_metering_1,frequency=1440, start=c(2007,1))
+autoplot(tshouseDay,ts.colour="blue", xlab="December 31st", ylab="Watt Hours", main="Kitchen Appliances Energy Consumption - December 31st for 2007, 2008, and 2009")
+
+#Forecasting
+install.packages("forecast")
+library(forecast)
+
+#Apply TS Linear Regr Sub-meter 3
+fitSM3<-tslm(tsSM3_070809weekly~trend+season)
+summary(fitSM3)
+
+#Create Forecast Sub-meter 3 - 20 time periods ahead
+forecastfitSM3<-forecast(fitSM3, h=20)
+plot(forecastfitSM3)
+
+#Create SM3 forecast conf lev 80 & 90
+forecastfitSM3c<-forecast(fitSM3,h=20,level=c(80,90))
+plot(forecastfitSM3c,ylim=c(0,20),ylab="watt Hours", xlab="Time", main="Water Heater and AC - 20 Week Energy Consumption Forecast for Mondays at 8.01PM")
+legend("top",bty="n",legend=c("Actual","Forecast"),col=c("black","#3399FF"),lty=1,lwd=2)
+?plot
+
+#Apply TS Linear Regr Sub-meter 2/Forecast
+houseWeekend<-filter(household_consum1,WeekDay==7 & Hour== 18 & (Minute==0|Minute==20|Minute==40))
+tshouseWeekend<-ts(houseWeekend$Sub_metering_2, frequency=156,start=c(2007,1))
+fitSM2<-tslm(tshouseWeekend~trend+season)
+summary(fitSM2)
+forecastfitSM2c<-forecast(fitSM2, h=156,level=c(80,90))
+plot(forecastfitSM2c,ylim=c(0,80),ylab="Watt Hours", xlab="Saturdays 18 to 19", main="Laundry Room - 1-Year Energy Consumption Forecast for Saturdays 18-19")
+legend("top", bty="n",legend=c("Actual","Forecast"),col=c("black","#3399FF"),lty=1,lwd=2)
+
+#Apply TS Linear Regr Sub-meter 1/Forecast
+fitSM1<-tslm(tshouseDay~trend+season)
+summary(fitSM1)
+forecastfitSM1c<-forecast(fitSM1,h=2880,level=c(80,90))
+plot(forecastfitSM1c,ylim=c(0,60),ylab="Watt Hours", xlab="October 11th", main="Kitchen Appliances - Two-Year Energy Consumption Forecast for October 11th")
+legend("top",bty="n",legend=c("Actual","Forecast"),col=c("black","#3399FF"),lty=1,lwd=2)
+?legend
+
+#Decomposition
+#Decompose SM3 into trend, seasonal, and remainder (files can be accessed from command line)
+components070809SM3weekly<-decompose(tsSM3_070809weekly)
+plot(components070809SM3weekly)
+summary(components070809SM3weekly$seasonal)
+summary(components070809SM3weekly$trend)
+summary(components070809SM3weekly$random)
+#Decompose SM1 into trend, seasonal, and remainder
+componentshouseDay<-decompose(tshouseDay)
+plot(componentshouseDay)
+summary(componentshouseDay$seasonal)
+summary(componentshouseDay$trend)
+summary(componentshouseDay$random)
+#Decompose SM2 into trend, seasonal, and remainder
+componentshouseWeekend<-decompose(tshouseWeekend)
+plot(componentshouseWeekend)
+summary(componentshouseWeekend$seasonal)
+summary(componentshouseWeekend$trend)
+summary(componentshouseWeekend$random)
+
+#Holt_Winter Forecast
+#SM3 Remove seasonal component
+tsSM3_070809Adjusted<-tsSM3_070809weekly - components070809SM3weekly$seasonal
+autoplot(tsSM3_070809Adjusted)
+#SM3 Decompose to check for seasonal adj
+plot(decompose(tsSM3_070809Adjusted))
+#HoltWinters Exp Smoothing
+tsSM3_HW070809<-HoltWinters(tsSM3_070809Adjusted, beta=FALSE,gamma=FALSE)
+plot(tsSM3_HW070809, ylim=c(0,25))     
+#Forecast after HW Exp Smoothing
+tsSM3_HW070809for<-forecast(tsSM3_HW070809,h=25)
+plot(tsSM3_HW070809for, ylim = c(0, 20), ylab= "Watt-Hours", xlab="Time - Sub-meter 3")
+#Forecast with low conf levels
+tsSM3_HW070809forC<-forecast(tsSM3_HW070809,h=25,level=c(10,25))
+#Plot only forecast
+plot(tsSM3_HW070809forC,ylim=c(0,20),ylab="Watt-Hours", xlab="Year", main="Water Heater and AC - Actuals and Forecast for Mondays at 20:01 without Seasonal Variation")
+plot(tsSM3_HW070809forC,ylim=c(0,20),ylab="Watt-Hours", xlab="Year", start(2010), main="Water Heater and AC - Forecast for Mondays at 20:01 without Seasonal Variation")
+
+#SM1 Remove seasonal component
+tshouseDayAdjusted<-tshouseDay - componentshouseDay$seasonal
+autoplot(tshouseDayAdjusted)
+#SM1 Decompose to check for seasonal adj
+plot(decompose(tshouseDayAdjusted))
+#HoltWinters Exp Smoothing
+tshouseDay_HW<-HoltWinters(tshouseDayAdjusted, beta=FALSE,gamma=FALSE)
+plot(tshouseDay_HW, ylim=c(0,40))     
+#Forecast after HW Exp Smoothing
+tshouseDay_HWfor<-forecast(tshouseDay_HW,h=1440)
+plot(tshouseDay_HWfor, ylim = c(0, 40), ylab= "Watt-Hours", xlab="Time - Sub-meter 1")
+#Forecast with low conf levels
+tshouseDay_HWforC<-forecast(tshouseDay_HW,h=1440,level=c(10,20))
+#Plot only forecast
+plot(tshouseDay_HWforC, ylim=c(0,40),ylab="Watt-Hours", xlab="October 11th", main="Kitchen Appliances - Actuals and Forecast for October 11th without Seasonal Variation")
+plot(tshouseDay_HWforC, ylim=c(0,40),ylab="Watt-Hours", xaxt="n", xlab="October 11th", start(2010), main="Kitchen Appliances - Forecast for October 11th, 2010 without Seasonal Variation")
+
+#SM2 Remove seasonal component
+tshouseWeekendAdjusted<-tshouseWeekend - componentshouseWeekend$seasonal
+autoplot(tshouseWeekendAdjusted)
+#SM1 Decompose to check for seasonal adj
+plot(decompose(tshouseWeekendAdjusted))
+#HoltWinters Exp Smoothing
+tshouseWeekend_HW<-HoltWinters(tshouseWeekendAdjusted, beta=FALSE,gamma=FALSE)
+plot(tshouseWeekendAdjusted, ylim=c(0,80))     
+#Forecast after HW Exp Smoothing
+tshouseWeekend_HWfor<-forecast(tshouseWeekend_HW,h=156)
+plot(tshouseWeekend_HWfor, ylim = c(0, 80), ylab= "Watt-Hours", xlab="Time - Sub-meter 2")
+#Forecast with low conf levels
+tshouseWeekEnd_HWforC<-forecast(tshouseWeekend_HW,h=156,level=c(10,25))
+#Plot only forecast
+plot(tshouseWeekEnd_HWforC, ylim=c(0,80),ylab="Watt-Hours", xlab="Saturdays 18:00 to 19:00", main="Laundry Room/Fridge - Actuals and Forecast for Saturdays 18:00 to 19:00 without Seasonal Variation")
+plot(tshouseWeekEnd_HWforC, ylim=c(0,80),ylab="Watt-Hours", xlab="Saturdays 18 to 19", start(2010), main="Laundry Room/Fridge - Forecast for Saturdays 18 to 19 without Seasonal Variation")
+
+```
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+plot(cars)
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
