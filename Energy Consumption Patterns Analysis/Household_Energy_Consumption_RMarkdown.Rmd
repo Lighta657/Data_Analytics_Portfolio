@@ -14,7 +14,7 @@ library(ggpubr)
 set.seed(42)
 
 #Create DB connection
-con=dbConnect(MySQL(),user='deepAnalytics',password='Sqltask1234!',dbname='dataanalytics2018',host='data-analytics-2018.cbrosir2cswx.us-east-1.rds.amazonaws.com')
+con=dbConnect(MySQL(),user='XXXX',password='XXXX!',dbname='XXXX',host='XXXX.XXXX.us-east-1.rds.amazonaws.com')
 
 #List table in db
 dbListTables(con)
