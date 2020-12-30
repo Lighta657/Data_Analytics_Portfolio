@@ -1,0 +1,134 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+```
+library(readr)
+library(tidyverse)
+library(caret)
+install.packages("caretEnsemble")
+library(caretEnsemble)
+library(lattice)
+install.packages("pracma")
+library(pracma)
+set.seed(123)
+trainingData <- read_csv("C://Users//Lighta//Desktop//Data_Analytics//Course4//Task3//trainingData.csv")
+validationData <- read_csv("C://Users//Lighta//Desktop//Data_Analytics//Course4//Task3//validationData.csv")
+
+#EDA
+spec(trainingData)
+attributes(trainingData)
+summary(trainingData)
+names(trainingData)
+dim(trainingData)
+glimpse(trainingData)
+is.na(trainingData)
+
+#Summary
+options(scipen=999)
+trainingData$SPACEID<-as.double(trainingData$SPACEID)
+summary_df<-do.call(cbind,lapply(trainingData[,1:ncol(trainingData)],summary))
+summary_df_t<-as.data.frame(round(t(summary_df),0))
+print(summary_df_t)
+write.csv(summary_df_t,"C:\\Users\\Lighta\\Desktop\\Data_Analytics\\Course4\\Task3\\FeatureSummary.csv")
+?mutate()
+
+x<-floor(runif(n=1,min=10,max=20))
+x
+
+#Combine features
+trainingData$SpecLocation<-paste0(trainingData$BUILDINGID,trainingData$FLOOR,trainingData$SPACEID,trainingData$RELATIVEPOSITION)
+trainingData[,c("USERID","PHONEID","BUILDINGID","FLOOR","SPACEID","RELATIVEPOSITION")]<-NULL
+trainingData[,c("LONGITUDE","LATITUDE","TIMESTAMP")]<-NULL
+#trainingData[,"TIMESTAMP"]<-sample(20,size=nrow(trainingData),replace=TRUE)
+num_factor<-c("SpecLocation")
+trainingData[ ,num_factor]<-lapply(trainingData[ ,num_factor],factor)
+
+#Check for outliers - just for training purposes, not a linear problem
+CheckOutliers<-trainingData[,1:520]
+cooksd<-cooks.distance(lm(WAP001~., family="binomial",data=CheckOutliers))
+plot(cooksd,pch="*",cex=2,main="Influential Observations by Cook Distance")
+outliers<-rownames(trainingData[cooksd>4*mean(cooksd, na.rm=T),])
+print(outliers)
+?cooks.distance
+
+#Model building
+training_indices<-sample(seq_len(nrow(trainingData)),size=14000,replace=FALSE)
+trainSet<-trainingData[training_indices,]
+testSet<-trainingData[-training_indices,]
+glimpse(testSet$SpecLocation)
+
+getModelInfo("rbf")
+
+fitControl1<-trainControl(method="repeatedcv",number=10,repeats=1)
+
+#KNN
+tnGrid<-expand.grid(k=1)
+KNNFit<-train(SpecLocation~., data=trainSet,method="knn",trControl=fitControl1,tuneGrid=tnGrid)
+KNNFit
+
+#C5.0 Automatic grid
+C5grid<-expand.grid(model="rules",trials=3,winnow=TRUE)
+CFiveFit1<-train(SpecLocation~.,data=trainSet,method="C5.0",trControl=fitControl1,tuneGrid=C5grid)
+CFiveFit1
+
+#Random Forest
+library(randomForest)
+library(e1071)
+library(plyr)
+library(ipred)
+RFFit<-randomForest(SpecLocation~.,data=trainSet,ntrees=50)
+RFFit2
+RFgrid<-expand.grid(mtry=c(1:10))
+RFFit2<-train(SpecLocation~.,data=trainSet,method="treebag",trControl=fitControl1)
+
+
+#Model eval
+preds<-predict(RFFit2,newdata=testSet)
+postResample(pred=preds,obs=testSet$SpecLocation)
+confusionMatrix(data=preds,reference=testSet$SpecLocation)
+
+resamp<-resamples(list(C50=CFiveFit1,KNN=KNNFit, CART=RFFit2))
+summary(resamp)
+parallelplot(resamp,metric="Accuracy")
+?resamples()
+?postResample
+
+fileConn<-file("C:\\Users\\Lighta\\Desktop\\Data_Analytics\\Course4\\Task3\\KNN.txt")
+write_lines(summary(resamp), fileConn)
+close(fileConn)
+
+#Predicting on new data
+#Pre-process
+validationData <- read.csv("C://Users//Lighta//Desktop//Data_Analytics//Course4//Task3//validationData.csv", header=TRUE)
+validationData$SpecLocation<-paste0(validationData$BUILDINGID,validationData$FLOOR,validationData$SPACEID,validationData$RELATIVEPOSITION)
+validationData[,c("PHONEID", "USERID","BUILDINGID","FLOOR","SPACEID","RELATIVEPOSITION")]<-NULL
+validationData[,c("LONGITUDE","LATITUDE","TIMESTAMP")]<-NULL
+validationData[ ,"SpecLocation"]<-as.factor(validationData[ ,"SpecLocation"])
+
+finalPred<-predict(RFFit2,validationData)
+finalPred
+output<-validationData
+output$predictions<-finalPred
+output[ ,"SpecLocation"]<-sapply(output[ ,"SpecLocation"],function(x) paste0("'",x))
+output[ ,"predictions"]<-sapply(output[ ,"predictions"],function(x) paste0("'",x))
+
+library(data.table)
+fwrite(output,file="C:\\Users\\Lighta\\Desktop\\Data_Analytics\\Course4\\Task3\\KNN.csv", quote=TRUE, qmethod="double")
+
+
+```
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+plot(cars)
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
