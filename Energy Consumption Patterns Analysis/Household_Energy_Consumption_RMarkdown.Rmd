@@ -5,7 +5,6 @@ output: html_notebook
 ```
 library(tidyverse)
 library(plotly)
-library(dplyr)
 install.packages("RMySQL")
 install.packages("plotly")
 library(RMySQL)
@@ -18,13 +17,9 @@ con=dbConnect(MySQL(),user='XXXX',password='XXXX!',dbname='XXXX',host='XXXX.XXXX
 
 #List table in db
 dbListTables(con)
-dbListFields(con,'iris')
 
 #Use * to specify all attr to download
-irisALL<-dbGetQuery(con,"SELECT * FROM iris")
-
 #Use attr names to download
-irisSELECT<-dbGetQuery(con,"SELECT SepalLengthCm, SepalWidthCm from iris")
 dbListFields(con,'yr_2006')
 yr_2010<-dbGetQuery(con,"SELECT Date,Time,Sub_metering_1,Sub_metering_2,Sub_metering_3 from yr_2010")
 dbDisconnect(con)
