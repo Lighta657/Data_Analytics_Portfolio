@@ -14,8 +14,8 @@ CompleteResponses <- read_csv("C:/Users/Lighta/Desktop/Data_Analytics/Course3/Ta
 ```
 ```{r}
 #EDA
+CompleteResponses[,"brand"]<-lapply(CompleteResponses[,"brand"],factor)
 summary(CompleteResponses)
-cor(CompleteResponses1)
 
 ```
 ```{r}
@@ -67,8 +67,9 @@ plot(varImp(RFFit),top=5)
 ```
 ```{r}
 #Testing
-preds<-predict(CFiveFit1,testing)
+preds<-predict(CFiveFitRS,testing)
 summary(preds)
+confusionMatrix(data=preds,reference=testing$brand)
 ```
 ```{r}
 #Unseen data - incomplete data
