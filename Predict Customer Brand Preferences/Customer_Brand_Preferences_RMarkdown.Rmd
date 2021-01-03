@@ -81,7 +81,7 @@ summary(SurveyIncomplete)
 ```
 ```{r}
 #Predict using unseen data
-preds1<-predict(CFiveFit1,SurveyIncomplete, type="raw")
+preds1<-predict(CFiveFitRS,SurveyIncomplete, type="raw")
 ```
 
 ```{r}
