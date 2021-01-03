@@ -3,7 +3,6 @@ title: "R Notebook"
 output: html_notebook
 ---
 ```
-library(readr)
 library(tidyverse)
 library(caret)
 install.packages("caretEnsemble")
