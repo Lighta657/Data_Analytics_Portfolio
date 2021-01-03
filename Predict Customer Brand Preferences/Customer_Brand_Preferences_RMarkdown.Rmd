@@ -76,6 +76,7 @@ confusionMatrix(data=preds,reference=testing$brand)
 SurveyIncomplete <- read_csv("C:/Users/Lighta/Desktop/Data_Analytics/Course3/Task2/SurveyIncomplete.csv")
 ```
 ```{r}
+SurveyIncomplete[,"brand"]<-lapply(SurveyIncomplete[,"brand"],factor)
 summary(SurveyIncomplete)
 ```
 ```{r}
