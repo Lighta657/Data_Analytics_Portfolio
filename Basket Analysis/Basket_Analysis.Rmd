@@ -1,0 +1,72 @@
+---
+title: "Untitled"
+output: html_document
+---
+```{r}
+library(arules)
+library(Matrix)
+library(arulesViz)
+library(grid)
+library(readr)
+library(stringr)
+
+#Read data in "basket" format
+extrns<-read.transactions("C:\\Users\\Lighta\\Desktop\\Data_Analytics\\Course3\\Task4\\ElectronidexTransactions2017.csv",format="basket",sep="\t")
+
+#EDA
+inspect(extrns)
+length(extrns)
+size(head(extrns))
+LIST(extrns)
+itemLabels(extrns)
+itemFrequencyPlot(extrns[,1:50],type="absolute",support=0.6,mai=c(0.1,0.1,0.1,0.1))
+image(sample(extrns,5000))
+
+#Most freq items
+FI<-eclat(extrns,parameter=list(supp=0.01,maxlen=30)) #use tidLists=TRUE as parameter to see IDs
+inspect(FI)
+itemFrequencyPlot(extrns, topN=10, type="absolute")
+
+#Apriori Rules
+R_1e4_1e3<-apriori(extrns,parameter=list(supp=0.001,conf=0.01))
+inspect(R_1e4_1e3)
+summary(R_1e4_1e3)
+
+#Model improving
+rules_conf<-sort(R_1e4_1e3,by="confidence",decreasing=TRUE)
+inspect(head(rules_conf))
+itemRules<-subset(R_1e4_1e3,subset=rhs %pin% "iMac")
+inspect(itemRules)
+?subset
+
+#Evaluate for redundance
+is.redundant(R_1e4_1e3)
+
+#Rules visualization
+plot(R_1e4_1e3,method="graph",control=list(type="items"))
+write(R_1e4_1e3,file="C:\\Users\\Lighta\\Desktop\\Data_Analytics\\Course3\\Task4\\assocrules.csv",sep=",",qoute=TRUE,row.names=FALSE)
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
