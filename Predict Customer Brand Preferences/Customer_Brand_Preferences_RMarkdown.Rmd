@@ -16,7 +16,6 @@ CompleteResponses <- read_csv("C:/Users/Lighta/Desktop/Data_Analytics/Course3/Ta
 #EDA
 CompleteResponses[,"brand"]<-lapply(CompleteResponses[,"brand"],factor)
 summary(CompleteResponses)
-
 ```
 ```{r}
 ggplot(CompleteResponses, aes(x = age, y = salary, colour = brand)) +
@@ -76,12 +75,11 @@ confusionMatrix(data=preds,reference=testing$brand)
 SurveyIncomplete <- read_csv("C:/Users/Lighta/Desktop/Data_Analytics/Course3/Task2/SurveyIncomplete.csv")
 ```
 ```{r}
-SurveyIncomplete[,"brand"]<-lapply(SurveyIncomplete[,"brand"],factor)
 summary(SurveyIncomplete)
 ```
 ```{r}
 #Predict using unseen data
-preds1<-predict(CFiveFitRS,SurveyIncomplete, type="raw")
+preds1<-predict(CFiveFit1,SurveyIncomplete, type="raw")
 ```
 
 ```{r}
