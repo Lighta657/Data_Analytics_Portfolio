@@ -5,4 +5,8 @@ Examples in this portfolio include samples of raw data (some files are too large
 
 Exploratory Data Analysis (EDA) and Machine Learning were performed using either Python (Jupyter Notebook) or R Markdown (Rmd). 
 
-Amazon Elastic MapReduce clusters were used to collect sentiments for several types of smartphones from Common Crawl data. MS Azure Databricks platform was used to perform text mining EDA and ML for a large tweet data set. 
+AWS Sentiment Predictions for Iphone and Samsung Galaxy
+Amazon Elastic MapReduce clusters were used to collect sentiments for several types of smartphones from Common Crawl data. 
+
+Tweet mining
+MS Azure Databricks platform was used to perform text mining EDA and ML for a large tweet data set. 
