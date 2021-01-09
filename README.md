@@ -1,7 +1,7 @@
                                                 DATA ANALYTICS PORTFOLIO
                                                 
                     
-Examples in this portfolio include samples of raw data (some files are too large to download), Exploratory Data Analysis (EDA), deployed Machine Learning algorithms, Findings Reports/Lessons Learned Reports.
+Examples in this portfolio include samples of raw data (some files are too large to download), Exploratory Data Analysis (EDA), deployed Machine Learning algorithms, and Findings Reports/Lessons Learned Reports.
 
 Exploratory Data Analysis (EDA) and Machine Learning were performed using either Python (Jupyter Notebook) or R Markdown (Rmd). 
 
