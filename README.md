@@ -7,4 +7,4 @@ Exploratory Data Analysis (EDA) and Machine Learning were performed using either
 
 AWS Sentiment Predictions for Iphone and Samsung Galaxy project used Amazon Elastic MapReduce clusters to collect sentiments for several types of smartphones from Common Crawl data. 
 
-Tweet mining project used MS Azure Databricks platform to perform text mining EDA and ML for a large tweet data set. 
+Tweet mining project used MS Azure Databricks platform to perform text mining EDA and ML (Natural Language Processing) for a large tweet data set. 
